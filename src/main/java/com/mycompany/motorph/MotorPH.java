@@ -49,13 +49,12 @@ public class MotorPH {
         String firstName;
         String lastName;
         String birthday;
+        double hourlyRate;
     }
 
     // Scanner is used to read user input from the keyboard
     static Scanner scanner = new Scanner(System.in);
 
-    // Hourly pay rate used to compute salary
-    static double hourlyRate = 134;
 
     // =====================================================
     // MAIN METHOD
@@ -246,7 +245,7 @@ public class MotorPH {
 
             while ((line = br.readLine()) != null) {
 
-                String[] parts = line.split(",");
+                String[] parts = line.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)", -1);
 
                 Employee emp = new Employee();
 
@@ -254,6 +253,7 @@ public class MotorPH {
                 emp.lastName = parts[1];
                 emp.firstName = parts[2];
                 emp.birthday = parts[3];
+                emp.hourlyRate = Double.parseDouble(parts[18].trim());
 
                 employees.add(emp);
             }
@@ -312,15 +312,40 @@ public class MotorPH {
                     }
 
                     if (correctCutoff) {
+                        LocalTime workStart    = LocalTime.of(8, 0);   // 8:00 AM
+                        LocalTime graceEnd     = LocalTime.of(8, 10);  // grace period ends 8:10
+                        LocalTime workEnd      = LocalTime.of(17, 0);  // 5:00 PM
+                        int lunchMinutes       = 60;                   // 1 hour lunch
 
-                        LocalTime timeIn = LocalTime.parse(parts[4], formatter);
-                        LocalTime timeOut = LocalTime.parse(parts[5], formatter);
+                        LocalTime timeIn  = LocalTime.parse(parts[4].trim(), formatter);
+                        LocalTime timeOut = LocalTime.parse(parts[5].trim(), formatter);
 
-                        Duration duration = Duration.between(timeIn, timeOut);
+                        // Rule 1: Grace period
+                        LocalTime effectiveLogin;
+                        if (!timeIn.isAfter(graceEnd)) {
+                            effectiveLogin = workStart; // 8:00 - 8:10 treated as 8:00
+                        } else {
+                            effectiveLogin = timeIn;    // late, use actual login
+                        }
 
-                        double hours = duration.toMinutes() / 60.0;
+                        // Rule 2: No overtime, cap at 5:00 PM
+                        LocalTime effectiveLogout;
 
-                        totalHours += hours;
+                        if (timeOut.isAfter(workEnd)) {
+                            effectiveLogout = workEnd;
+                        } else {
+                            effectiveLogout = timeOut;
+                        }
+
+                        // Rule 3: Calculate minutes minus lunch
+                        int minutesWorked = (effectiveLogout.getHour() * 60 + effectiveLogout.getMinute())
+                                          - (effectiveLogin.getHour()  * 60 + effectiveLogin.getMinute())
+                                          - lunchMinutes;
+
+                        // No negative hours
+                        if (minutesWorked < 0) minutesWorked = 0;
+
+                        totalHours += minutesWorked / 60.0;
                     }
                 }
             }
@@ -345,16 +370,18 @@ public class MotorPH {
         System.out.println("Employee Name: " + emp.firstName + " " + emp.lastName);
         System.out.println("Birthday: " + emp.birthday);
 
+        // ── Cutoff 1: June 1 - 15
         double hours1 = calculateHours(emp.number, 1);
-        double gross1 = hours1 * hourlyRate;
-
+        double gross1 = hours1 * emp.hourlyRate; 
+    
         System.out.println("\nCutoff Date: June 1 - June 15");
-        System.out.printf("Total Hours Worked: %.2f\n", hours1);
-        System.out.printf("Gross Salary: %.2f\n", gross1);
-        System.out.printf("Net Salary: %.2f\n", gross1);
+        System.out.println("Total Hours Worked: " + hours1);
+        System.out.println("Gross Salary: " + gross1);
+        System.out.println("Net Salary: " + gross1);
 
+        // ── Cutoff 2: June 16 - 30
         double hours2 = calculateHours(emp.number, 2);
-        double gross2 = hours2 * hourlyRate;
+        double gross2 = hours2 * emp.hourlyRate; 
 
         double sss = 765;
         double philhealth = 257.25;
@@ -365,17 +392,17 @@ public class MotorPH {
         double net2 = gross2 - deductions;
 
         System.out.println("\nCutoff Date: June 16 - June 30");
-        System.out.printf("Total Hours Worked: %.2f\n", hours2);
-        System.out.printf("Gross Salary: %.2f\n", gross2);
+        System.out.println("Total Hours Worked: " + hours2);
+        System.out.println("Gross Salary: " + gross2);
 
         System.out.println("\nDeductions:");
-        System.out.printf("SSS: %.2f\n", sss);
-        System.out.printf("PhilHealth: %.2f\n", philhealth);
-        System.out.printf("Pag-IBIG: %.2f\n", pagibig);
-        System.out.printf("Tax: %.2f\n", tax);
+        System.out.println("SSS: " + sss);
+        System.out.println("PhilHealth: " + philhealth);
+        System.out.println("Pag-IBIG: " + pagibig);
+        System.out.println("Tax: " + tax);
 
-        System.out.printf("Total Deductions: %.2f\n", deductions);
-        System.out.printf("Net Salary: %.2f\n", net2);
+        System.out.println("Total Deductions: +" + deductions);
+        System.out.println("Net Salary: " + net2);
 
         System.out.println("=================================");
     }
