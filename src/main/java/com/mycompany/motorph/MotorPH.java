@@ -45,10 +45,10 @@ public class MotorPH {
     // =====================================================
     static class Employee {
 
-        String number;      // Employee ID number
-        String firstName;   // Employee first name
-        String lastName;    // Employee last name
-        String birthday;    // Employee birthday
+        String number;
+        String firstName;
+        String lastName;
+        String birthday;
     }
 
     // Scanner is used to read user input from the keyboard
@@ -63,22 +63,16 @@ public class MotorPH {
     // =====================================================
     public static void main(String[] args) {
 
-        // Display system title
         System.out.println("================================");
         System.out.println("       MotorPH Payroll System");
         System.out.println("================================");
 
-        // Ask user to login
         String username = login();
 
-        // After login, the program checks what type of user logged in
-
-        // If the user is an employee
         if (username.equals("employee")) {
             employeeMenu();
         }
 
-        // If the user is payroll staff
         if (username.equals("payroll_staff")) {
             payrollMenu();
         }
@@ -86,50 +80,37 @@ public class MotorPH {
 
     // =====================================================
     // LOGIN METHOD
-    // This asks the user for username and password
     // =====================================================
     static String login() {
 
-        // Ask for username
         System.out.print("Username: ");
         String username = scanner.nextLine();
 
-        // Ask for password
         System.out.print("Password: ");
         String password = scanner.nextLine();
 
-        // Valid usernames
-        // Only these two are accepted
         boolean validUsername =
                 username.equals("employee") ||
                 username.equals("payroll_staff");
 
-        // Valid password
         boolean validPassword = password.equals("12345");
 
-        // If login is incorrect
         if (!validUsername || !validPassword) {
 
             System.out.println("Incorrect username and/or password.");
-
-            // Stop the program immediately
             System.exit(0);
         }
 
-        // If login is correct, return the username
         return username;
     }
 
     // =====================================================
     // EMPLOYEE MENU
-    // This menu is shown if the user logs in as "employee"
     // =====================================================
     static void employeeMenu() {
 
-        // Load all employee records from the CSV file
         List<Employee> employees = loadEmployees();
 
-        // Infinite loop until user exits program
         while (true) {
 
             System.out.println("\nEmployee Menu");
@@ -138,7 +119,6 @@ public class MotorPH {
 
             String choice = scanner.nextLine();
 
-            // Option 1: search employee
             if (choice.equals("1")) {
 
                 System.out.print("Enter employee number: ");
@@ -146,13 +126,10 @@ public class MotorPH {
 
                 boolean found = false;
 
-                // Loop through all employees
                 for (Employee emp : employees) {
 
-                    // If employee number matches
                     if (emp.number.equals(empNum)) {
 
-                        // Display employee information
                         System.out.println("\nEmployee Number: " + emp.number);
                         System.out.println("Employee Name: " + emp.firstName + " " + emp.lastName);
                         System.out.println("Birthday: " + emp.birthday);
@@ -162,13 +139,11 @@ public class MotorPH {
                     }
                 }
 
-                // If employee number does not exist
                 if (!found) {
                     System.out.println("Employee number does not exist.");
                 }
             }
 
-            // Option 2: exit program
             if (choice.equals("2")) {
 
                 System.out.println("Program terminated.");
@@ -179,7 +154,6 @@ public class MotorPH {
 
     // =====================================================
     // PAYROLL STAFF MENU
-    // This menu appears if login user is payroll_staff
     // =====================================================
     static void payrollMenu() {
 
@@ -191,12 +165,10 @@ public class MotorPH {
 
             String choice = scanner.nextLine();
 
-            // Option 1: open payroll processing
             if (choice.equals("1")) {
                 processPayrollMenu();
             }
 
-            // Option 2: exit program
             if (choice.equals("2")) {
 
                 System.out.println("Program terminated.");
@@ -207,12 +179,9 @@ public class MotorPH {
 
     // =====================================================
     // PROCESS PAYROLL MENU
-    // Allows payroll staff to process one employee
-    // or all employees
     // =====================================================
     static void processPayrollMenu() {
 
-        // Load employees again from CSV
         List<Employee> employees = loadEmployees();
 
         while (true) {
@@ -224,7 +193,6 @@ public class MotorPH {
 
             String choice = scanner.nextLine();
 
-            // Option 1: process payroll for one employee
             if (choice.equals("1")) {
 
                 System.out.print("Enter employee number: ");
@@ -247,16 +215,13 @@ public class MotorPH {
                 }
             }
 
-            // Option 2: process payroll for ALL employees
             if (choice.equals("2")) {
 
                 for (Employee emp : employees) {
-
                     displayPayroll(emp);
                 }
             }
 
-            // Option 3: go back to previous menu
             if (choice.equals("3")) {
                 return;
             }
@@ -265,7 +230,6 @@ public class MotorPH {
 
     // =====================================================
     // LOAD EMPLOYEES FROM CSV FILE
-    // This reads employee information from the CSV file
     // =====================================================
     static List<Employee> loadEmployees() {
 
@@ -276,17 +240,14 @@ public class MotorPH {
             BufferedReader br = new BufferedReader(
                     new FileReader("MotorPH_Employee Data.csv"));
 
-            // Skip the first row (header)
             br.readLine();
 
             String line;
 
-            // Read each line of the CSV file
             while ((line = br.readLine()) != null) {
 
                 String[] parts = line.split(",");
 
-                // Create a new employee object
                 Employee emp = new Employee();
 
                 emp.number = parts[0];
@@ -309,13 +270,11 @@ public class MotorPH {
 
     // =====================================================
     // CALCULATE HOURS WORKED
-    // Reads attendance file and sums working hours
     // =====================================================
     static double calculateHours(String employeeNumber, int cutoff) {
 
         double totalHours = 0;
 
-        // Format used to read time values like 8:30
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("H:mm");
 
         try {
@@ -343,7 +302,6 @@ public class MotorPH {
 
                     boolean correctCutoff = false;
 
-                    // Only include June attendance
                     if (month == 6) {
 
                         if (cutoff == 1 && day <= 15)
@@ -379,7 +337,6 @@ public class MotorPH {
 
     // =====================================================
     // DISPLAY PAYROLL INFORMATION
-    // Shows salary calculations for each employee
     // =====================================================
     static void displayPayroll(Employee emp) {
 
@@ -388,7 +345,6 @@ public class MotorPH {
         System.out.println("Employee Name: " + emp.firstName + " " + emp.lastName);
         System.out.println("Birthday: " + emp.birthday);
 
-        // FIRST PAYOUT PERIOD
         double hours1 = calculateHours(emp.number, 1);
         double gross1 = hours1 * hourlyRate;
 
@@ -397,11 +353,9 @@ public class MotorPH {
         System.out.printf("Gross Salary: %.2f\n", gross1);
         System.out.printf("Net Salary: %.2f\n", gross1);
 
-        // SECOND PAYOUT PERIOD
         double hours2 = calculateHours(emp.number, 2);
         double gross2 = hours2 * hourlyRate;
 
-        // Government deductions
         double sss = 765;
         double philhealth = 257.25;
         double pagibig = 100;
