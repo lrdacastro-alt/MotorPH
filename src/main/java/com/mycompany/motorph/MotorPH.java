@@ -1,31 +1,30 @@
-package com.mycompany.motorph; // groups this class under your project package
+package com.mycompany.motorph;
 
-import java.util.*; // lets us use Scanner, HashMap, etc.
-import java.io.*; // lets us read files (CSV)
-import java.time.*; // lets us compute time differences
-import java.time.format.DateTimeFormatter; // lets us read time format like 8:00
+import java.util.*;
+import java.io.*;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
 
 public class MotorPH {
 
-    static Scanner sc = new Scanner(System.in); // reads keyboard input
+    static Scanner sc = new Scanner(System.in);
 
-    // key = employee number, value = [last name, first name, birthday, gross semi-monthly]
+    // key = employee number, value = [last, first, birthday, grossSemi, hourlyRate]
     static HashMap<String, String[]> employees = new HashMap<>();
 
-    // based on your CSV header, Gross Semi-monthly Rate is column 17
     static final int GROSS_SEMI_MONTHLY_INDEX = 17;
+    static final int HOURLY_RATE_INDEX = 18;
 
     public static void main(String[] args) {
-        System.out.println("=== MotorPH Payroll System ==="); // title
+        System.out.println("=== MotorPH Payroll System ===");
 
-        String user = login(); // ask for username/password
-        loadEmployees(); // load employee data from csv into hashmap
+        String user = login();
+        loadEmployees();
 
-        if (user.equals("employee")) employeeMenu(); // employee menu
-        else payrollMenu(); // payroll staff menu
+        if (user.equals("employee")) employeeMenu();
+        else payrollMenu();
     }
 
-    // asks user credentials and returns user role if valid
     static String login() {
         System.out.print("Username: ");
         String u = sc.nextLine().trim();
@@ -33,15 +32,13 @@ public class MotorPH {
         System.out.print("Password: ");
         String p = sc.nextLine().trim();
 
-        // allowed users in this project
         if ((u.equals("employee") || u.equals("payroll_staff")) && p.equals("12345")) return u;
 
         System.out.println("Invalid login.");
-        System.exit(0); // stop program if invalid
+        System.exit(0);
         return "";
     }
 
-    // menu for employee account
     static void employeeMenu() {
         while (true) {
             System.out.println("\n1. View Employee");
@@ -54,17 +51,18 @@ public class MotorPH {
                     String id = sc.nextLine().trim();
 
                     if (employees.containsKey(id)) {
-                        String[] e = employees.get(id); // get employee info
+                        String[] e = employees.get(id);
                         System.out.println("Name: " + e[1] + " " + e[0]);
                         System.out.println("Birthday: " + e[2]);
                         System.out.println("Gross Semi-monthly: " + e[3]);
+                        System.out.println("Hourly Rate: " + e[4]);
                     } else {
                         System.out.println("Employee not found.");
                     }
                     break;
 
                 case "2":
-                    System.exit(0); // end program
+                    System.exit(0);
                     break;
 
                 default:
@@ -73,7 +71,6 @@ public class MotorPH {
         }
     }
 
-    // menu for payroll staff
     static void payrollMenu() {
         while (true) {
             System.out.println("\n1. One Employee Payroll");
@@ -85,17 +82,16 @@ public class MotorPH {
                 case "1":
                     System.out.print("Employee Number: ");
                     String id = sc.nextLine().trim();
-
                     if (employees.containsKey(id)) displayPayroll(id);
                     else System.out.println("Employee not found.");
                     break;
 
                 case "2":
-                    for (String idNum : employees.keySet()) displayPayroll(idNum); // show all
+                    for (String idNum : employees.keySet()) displayPayroll(idNum);
                     break;
 
                 case "3":
-                    return; // exit payroll menu
+                    return;
 
                 default:
                     System.out.println("Invalid choice.");
@@ -103,26 +99,52 @@ public class MotorPH {
         }
     }
 
-    // reads employee csv and stores needed columns in hashmap
+    // split CSV line while respecting quoted commas
+    static String[] parseCSVLine(String line) {
+        List<String> cols = new ArrayList<>();
+        StringBuilder cur = new StringBuilder();
+        boolean inQuotes = false;
+
+        for (int i = 0; i < line.length(); i++) {
+            char ch = line.charAt(i);
+
+            if (ch == '"') {
+                inQuotes = !inQuotes;
+            } else if (ch == ',' && !inQuotes) {
+                cols.add(cur.toString().trim());
+                cur.setLength(0);
+            } else {
+                cur.append(ch);
+            }
+        }
+        cols.add(cur.toString().trim());
+
+        return cols.toArray(new String[0]);
+    }
+
+    static String cleanMoney(String s) {
+        return s.replace("\"", "").replace(",", "").trim();
+    }
+
     static void loadEmployees() {
         try {
             BufferedReader br = new BufferedReader(new FileReader("MotorPH_Employee Data.csv"));
-            br.readLine(); // skip header row
+            br.readLine(); // header
 
             String line;
             while ((line = br.readLine()) != null) {
-                String[] p = line.split(",", -1); // split row into columns
-                if (p.length <= GROSS_SEMI_MONTHLY_INDEX) continue; // skip bad row
+                String[] p = parseCSVLine(line);
+                if (p.length <= HOURLY_RATE_INDEX) continue;
 
                 String id = p[0].trim();
                 String last = p[1].trim();
                 String first = p[2].trim();
                 String bday = p[3].trim();
 
-                // remove quotes/commas from number text
-                String grossSemi = p[GROSS_SEMI_MONTHLY_INDEX].replace("\"", "").replace(",", "").trim();
+                String grossSemi = cleanMoney(p[GROSS_SEMI_MONTHLY_INDEX]);
+                String hourlyRate = cleanMoney(p[HOURLY_RATE_INDEX]);
 
-                employees.put(id, new String[]{last, first, bday, grossSemi});
+                employees.put(id, new String[]{last, first, bday, grossSemi, hourlyRate});
             }
 
             br.close();
@@ -134,36 +156,45 @@ public class MotorPH {
         }
     }
 
-    // computes total worked hours for a given employee and cutoff
-    // cutoff 1 = June 1-15, cutoff 2 = June 16-30
     static double calcHours(String id, int cutoff) {
-        double total = 0;
+        double total = 0.0;
         DateTimeFormatter f = DateTimeFormatter.ofPattern("H:mm");
+
+        LocalTime workStart = LocalTime.of(8, 0);
+        LocalTime graceEnd = LocalTime.of(8, 10);
+        LocalTime workEnd = LocalTime.of(17, 0);
+        int lunchMinutes = 60;
 
         try {
             BufferedReader br = new BufferedReader(new FileReader("employee_attendance.csv"));
-            br.readLine(); // skip header
+            br.readLine(); // header
             String line;
 
             while ((line = br.readLine()) != null) {
-                String[] p = line.split(",", -1);
+                String[] p = parseCSVLine(line);
                 if (p.length < 6) continue;
-                if (!p[0].trim().equals(id)) continue; // only target employee
+                if (!p[0].trim().equals(id)) continue;
 
-                String[] d = p[3].trim().split("/"); // date in M/D/YYYY
+                String[] d = p[3].trim().split("/");
                 int month = Integer.parseInt(d[0]);
                 int day = Integer.parseInt(d[1]);
 
-                if (month != 6) continue; // only June for this project
+                if (month != 6) continue;
 
                 boolean inCutoff1 = (cutoff == 1 && day <= 15);
                 boolean inCutoff2 = (cutoff == 2 && day >= 16);
+                if (!(inCutoff1 || inCutoff2)) continue;
 
-                if (inCutoff1 || inCutoff2) {
-                    LocalTime in = LocalTime.parse(p[4].trim(), f);
-                    LocalTime out = LocalTime.parse(p[5].trim(), f);
-                    total += Duration.between(in, out).toMinutes() / 60.0; // minutes to hours
-                }
+                LocalTime timeIn = LocalTime.parse(p[4].trim(), f);
+                LocalTime timeOut = LocalTime.parse(p[5].trim(), f);
+
+                LocalTime effectiveIn = (!timeIn.isAfter(graceEnd)) ? workStart : timeIn;
+                LocalTime effectiveOut = timeOut.isAfter(workEnd) ? workEnd : timeOut;
+
+                long minutesWorked = Duration.between(effectiveIn, effectiveOut).toMinutes() - lunchMinutes;
+                if (minutesWorked < 0) minutesWorked = 0;
+
+                total += (minutesWorked / 60.0);
             }
 
             br.close();
@@ -176,45 +207,49 @@ public class MotorPH {
         return total;
     }
 
-    // prints payroll result for one employee
     static void displayPayroll(String id) {
         String[] e = employees.get(id);
 
-        double grossSemi = 0;
+        double grossSemi = 0.0;
+        double effectiveHourly = 0.0;
+
         try {
-            grossSemi = Double.parseDouble(e[3]); // convert text number to double
+            grossSemi = Double.parseDouble(e[3]);
         } catch (Exception ex) {
             System.out.println("Invalid gross semi-monthly for employee " + id + ". Using 0.");
         }
 
-        // assumption: 80 work hours per cutoff
-        double effectiveHourly = grossSemi / 80.0;
+        try {
+            effectiveHourly = Double.parseDouble(e[4]);
+        } catch (Exception ex) {
+            System.out.println("Invalid hourly rate for employee " + id + ". Fallback to grossSemi/80.");
+            effectiveHourly = grossSemi / 80.0;
+        }
 
         System.out.println("\n=======================");
         System.out.println("Employee: " + e[1] + " " + e[0]);
+        System.out.printf("Hourly Rate Used: %.2f\n", effectiveHourly); // debug proof
 
-        // cutoff 1
         double h1 = calcHours(id, 1);
         double g1 = h1 * effectiveHourly;
 
         System.out.println("\nJune 1-15");
-        System.out.printf("Hours: %.2f\n", h1);
+        System.out.printf("Hours: %.4f\n", h1);
         System.out.printf("Gross: %.2f\n", g1);
-        System.out.printf("Net: %.2f\n", g1); // no deductions here
+        System.out.printf("Net: %.2f\n", g1);
 
-        // cutoff 2
         double h2 = calcHours(id, 2);
         double g2 = h2 * effectiveHourly;
 
-        double deductions = 765.00 + 257.25 + 100.00;
+        double deductions = 0.0;
         double net2 = g2 - deductions;
-        if (net2 < 0) net2 = 0; // prevent negative net
+        if (net2 < 0) net2 = 0;
 
         System.out.println("\nJune 16-30");
-        System.out.printf("Hours: %.2f\n", h2);
+        System.out.printf("Hours: %.4f\n", h2);
         System.out.printf("Gross: %.2f\n", g2);
+        System.out.printf("Deductions: %.2f\n", deductions);
         System.out.printf("Net: %.2f\n", net2);
-
         System.out.println("=======================");
     }
 }
