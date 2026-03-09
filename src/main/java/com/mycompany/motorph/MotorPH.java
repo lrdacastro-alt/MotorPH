@@ -18,14 +18,7 @@ import java.io.IOException;
 
 public class MotorPH {
 
-    // ── Employee record ────────────────────────────────────────
-    static class Employee {
-        String number;
-        String lastName;
-        String firstName;
-        String birthday;
-      
-    }
+    
 
     // ── 1. MAIN ────────────────────────────────────────────────
     public static void main(String[] args) {
@@ -67,7 +60,7 @@ public class MotorPH {
 
     // ── 4. EMPLOYEE MENU ───────────────────────────────────────
     static void employeeMenu(Scanner scanner) {
-    List<Employee> employees = new ArrayList<>();
+    List<String[]> employees = new ArrayList<>();
 
     try (BufferedReader br = new BufferedReader(new FileReader("MotorPH_Employee Data.csv"))) {
         br.readLine(); // skip header row
@@ -76,12 +69,12 @@ public class MotorPH {
         while ((line = br.readLine()) != null) {
             String[] parts = line.split(",", -1);
             if (parts.length >= 4) {
-                Employee emp = new Employee();
-                emp.number    = parts[0].trim();
-                emp.lastName  = parts[1].trim();
-                emp.firstName = parts[2].trim();
-                emp.birthday  = parts[3].trim();
-                employees.add(emp);
+                employees.add(new String[]{
+                parts[0].trim(), // number
+                parts[1].trim(), // lastName
+                parts[2].trim(), // firstName
+                parts[3].trim()  // birthday
+            });
             }
         }
     } catch (IOException e) {
@@ -108,13 +101,13 @@ public class MotorPH {
 }
 
     // ── 5. SEARCH EMPLOYEE ─────────────────────────────────────
-    static void searchEmployee(Scanner scanner, List<Employee> employees) {
+    static void searchEmployee(Scanner scanner, List<String[]> employees) {
         System.out.print("Enter employee number: ");
         String empNum = scanner.nextLine();
 
         boolean found = false;
-        for (Employee emp : employees) {
-            if (emp.number.equalsIgnoreCase(empNum)) {
+        for (String[] emp : employees) {
+            if (emp[0].equalsIgnoreCase(empNum)) {
                 displayEmployee(emp);
                 found = true;
                 break;
@@ -127,13 +120,13 @@ public class MotorPH {
     }
 
     // ── 6. DISPLAY EMPLOYEE DETAILS ────────────────────────────
-    static void displayEmployee(Employee emp) {
+    static void displayEmployee(String[] emp) {
         System.out.println("=============================");
         System.out.println("      EMPLOYEE DETAILS       ");
         System.out.println("=============================");
-        System.out.println("Employee Number : " + emp.number);
-        System.out.println("Employee Name   : " + emp.firstName + " " + emp.lastName);
-        System.out.println("Birthday        : " + emp.birthday);
+        System.out.println("Employee Number : " + emp[0]);
+        System.out.println("Employee Name   : " + emp[2] + " " + emp[1]);
+        System.out.println("Birthday        : " + emp[3]);
         System.out.println("=============================");
     }
 
