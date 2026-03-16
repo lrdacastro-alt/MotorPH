@@ -284,17 +284,6 @@ public class MotorPH {
             effectiveHourly = basicSalary / 160.0;
         }
 
-        // deductions are fixed per month based on basic salary from CSV
-        double sss         = calcSSS(basicSalary);
-        double philhealth  = calcPhilHealth(basicSalary);
-        double pagibig     = calcPagIbig(basicSalary);
-        double totalNonTax = sss + philhealth + pagibig;
-
-        double taxableIncome   = basicSalary - totalNonTax;
-        double tax             = calcTax(taxableIncome);
-        double totalDeductions = totalNonTax + tax;
-
-        // get all months available in attendance for this employee
         List<Integer> availableMonths = getAvailableMonths(id);
 
         if (availableMonths.isEmpty()) {
@@ -308,7 +297,6 @@ public class MotorPH {
         System.out.println("Birthday        : " + e[2]);
         System.out.printf("Basic Salary    : %.2f\n", basicSalary);
 
-        // loop through each available month
         for (int month : availableMonths) {
 
             double h1 = calcHours(id, 1, month);
@@ -317,8 +305,21 @@ public class MotorPH {
             double h2 = calcHours(id, 2, month);
             double g2 = h2 * effectiveHourly;
 
-            double net1 = g1;                   // no deductions on first cutoff
-            double net2 = g2 - totalDeductions; // all deductions on second cutoff
+            double monthlyGross = g1 + g2;
+
+            // Deductions based on combined monthly gross
+            double sss        = calcSSS(monthlyGross);
+            double philhealth = calcPhilHealth(monthlyGross);
+            double pagibig    = calcPagIbig(monthlyGross);
+            double totalNonTax = sss + philhealth + pagibig;
+
+            // Tax based on (g1+g2) - non-tax deductions
+            double taxableIncome   = monthlyGross - totalNonTax;
+            double tax             = calcTax(taxableIncome);
+            double totalDeductions = totalNonTax + tax;
+
+            double net1 = g1;                        // no deductions on first cutoff
+            double net2 = g2 - totalDeductions;      // all deductions on second cutoff
             if (net2 < 0) net2 = 0;
 
             System.out.println("\n-----------------------");
@@ -334,13 +335,19 @@ public class MotorPH {
             System.out.println("\nCutoff Date        : " + MONTH_NAMES[month] + " 16 to 30");
             System.out.printf("Total Hours Worked : %.2f hrs\n", h2);
             System.out.printf("Gross Salary       : %.2f\n", g2);
-            System.out.println("\n-- Deductions (based on Basic Salary) --");
-            System.out.printf("SSS                : %.2f\n", sss);
-            System.out.printf("PhilHealth         : %.2f\n", philhealth);
-            System.out.printf("Pag-IBIG           : %.2f\n", pagibig);
-            System.out.printf("Tax (Withholding)  : %.2f\n", tax);
             System.out.printf("Total Deductions   : %.2f\n", totalDeductions);
             System.out.printf("Net Salary         : %.2f\n", net2);
+            
+            System.out.println("\n-- Deductions (based on Total Monthly Gross --");         
+            System.out.printf("Total Monthly Gross: %.2f\n", monthlyGross);
+            System.out.printf("SSS                : %.2f\n", sss);
+            System.out.printf("PhilHealth         : %.2f\n", philhealth);
+            System.out.printf("Pag-IBIG           : %.2f\n", pagibig);            
+            System.out.printf("Taxable Income     : %.2f\n", taxableIncome);
+            System.out.printf("Tax (Withholding)  : %.2f\n", tax);            
+            System.out.printf("Total Deductions   : %.2f\n", totalDeductions);
+            
+            
         }
 
         System.out.println("\n=======================");
