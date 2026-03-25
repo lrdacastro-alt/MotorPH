@@ -4,47 +4,92 @@ import java.util.*;
 import java.io.*;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 public class MotorPH {
 
     static Scanner sc = new Scanner(System.in);
+ 
+    // =====================
+    // EMPLOYEE CLASS
+    // =====================
 
-    // key = employee number, value = [last, first, birthday, grossSemi, hourlyRate, basicSalary]
-    static HashMap<String, String[]> employees = new HashMap<>();
+    static class Employee {
+        String id;
+        String lastName;
+        String firstName;
+        String birthday;
+        String grossSemiMonthly;
+        String hourlyRate;
+        String basicSalary;
 
-    static final int BASIC_SALARY_INDEX       = 13;
-    static final int GROSS_SEMI_MONTHLY_INDEX  = 17;
-    static final int HOURLY_RATE_INDEX         = 18;
+        Employee(String id, String lastName, String firstName, String birthday,
+                 String basicSalary, String grossSemiMonthly, String hourlyRate) {
+            this.id               = id;
+            this.lastName         = lastName;
+            this.firstName        = firstName;
+            this.birthday         = birthday;
+            this.basicSalary      = basicSalary;
+            this.grossSemiMonthly = grossSemiMonthly;
+            this.hourlyRate       = hourlyRate;
+        }
 
+        String fullName() { return firstName + " " + lastName; }
+    }
+
+    static HashMap<String, Employee> employees = new HashMap<>();
+    static List<String[]> attendanceRecords = new ArrayList<>();
+
+    // Column indices in the employee CSV file (0-based)
+    static final int BASIC_SALARY_INDEX      = 13; // Column 14: Monthly basic salary
+    static final int GROSS_SEMI_MONTHLY_INDEX = 17; // Column 18: Gross semi-monthly rate
+    static final int HOURLY_RATE_INDEX        = 18; // Column 19: Hourly rate
+    static final String EMPLOYEE_FILE         = "MotorPH_Employee Data.csv";
+    static final String ATTENDANCE_FILE       = "employee_attendance.csv";
+
+    // Month name lookup by month number (index 0 is unused; 1 = January, etc.)
     static final String[] MONTH_NAMES = {"", "January", "February", "March", "April",
         "May", "June", "July", "August", "September", "October", "November", "December"};
 
     public static void main(String[] args) {
         System.out.println("=== MotorPH Payroll System ===");
 
-        String user = login();
-        loadEmployees();
+        String userRole = login();
 
-        if (user.equals("employee")) employeeMenu();
+        loadEmployees();
+        loadAttendance();
+
+        if (userRole.equals("employee")) employeeMenu();
         else payrollMenu();
+
+        sc.close();
     }
 
     // =====================
     // LOGIN
     // =====================
 
+    /**
+     * Prompts the user for credentials and validates them.
+     * Accepted usernames: "employee" and "payroll_staff", both with password "12345".
+     *
+     * @return the validated username (used to determine menu routing)
+     */
     static String login() {
         System.out.print("Username: ");
-        String loginID = sc.nextLine().trim();
+        String username = sc.nextLine().trim();
 
         System.out.print("Password: ");
         String password = sc.nextLine().trim();
 
-        if ((loginID.equals("employee") || loginID.equals("payroll_staff")) && password.equals("12345")) return loginID;
+        if ((username.equals("employee") || username.equals("payroll_staff")) && password.equals("12345")) {
+            return username;
+        }
 
         System.out.println("Invalid login.");
         System.exit(0);
-        return "";
+        return ""; // Unreachable, but required for compilation
     }
 
     // =====================
@@ -63,20 +108,15 @@ public class MotorPH {
                     String id = sc.nextLine().trim();
 
                     if (employees.containsKey(id)) {
-                        String[] employee = employees.get(id);
-                        System.out.println("Name              : " + employee[1] + " " + employee[0]);
-                        System.out.println("Birthday          : " + employee[2]);
-                        System.out.println("Basic Salary      : " + employee[5]);
-                        System.out.println("Gross Semi-monthly: " + employee[3]);
-                        System.out.println("Hourly Rate       : " + employee[4]);
+                        Employee employee = employees.get(id);
+                        printEmployeeInfo(id, employee);
                     } else {
                         System.out.println("Employee number does not exist.");
                     }
                     break;
 
                 case "2":
-                    System.exit(0);
-                    break;
+                    return;
 
                 default:
                     System.out.println("Invalid choice.");
@@ -110,6 +150,19 @@ public class MotorPH {
                     System.out.println("Invalid choice.");
             }
         }
+    }
+
+    // =====================
+    // PRINT EMPLOYEE INFO
+    // =====================
+
+    static void printEmployeeInfo(String id, Employee e) {
+        System.out.println("Employee Number   : " + id);
+        System.out.println("Name              : " + e.fullName());
+        System.out.println("Birthday          : " + e.birthday);
+        System.out.println("Basic Salary      : " + e.basicSalary);
+        System.out.println("Gross Semi-monthly: " + e.grossSemiMonthly);
+        System.out.println("Hourly Rate       : " + e.hourlyRate);
     }
 
     // =====================
@@ -148,24 +201,23 @@ public class MotorPH {
 
     static void loadEmployees() {
         try {
-            BufferedReader br = new BufferedReader(new FileReader("MotorPH_Employee Data.csv"));
+            BufferedReader br = new BufferedReader(new FileReader(EMPLOYEE_FILE));
             br.readLine(); // skip header
 
             String line;
             while ((line = br.readLine()) != null) {
-                String[] p = parseCSVLine(line);
-                if (p.length <= HOURLY_RATE_INDEX) continue;
+                String[] columns = parseCSVLine(line);
+                if (columns.length <= HOURLY_RATE_INDEX) continue;
 
-                String id          = p[0].trim();
-                String last        = p[1].trim();
-                String first       = p[2].trim();
-                String bday        = p[3].trim();
-                String basicSalary = cleanMoney(p[BASIC_SALARY_INDEX]);
-                String grossSemi   = cleanMoney(p[GROSS_SEMI_MONTHLY_INDEX]);
-                String hourlyRate  = cleanMoney(p[HOURLY_RATE_INDEX]);
+                String id          = columns[0].trim();
+                String last        = columns[1].trim();
+                String first       = columns[2].trim();
+                String bday        = columns[3].trim();
+                String basicSalary = cleanMoney(columns[BASIC_SALARY_INDEX]);
+                String grossSemi   = cleanMoney(columns[GROSS_SEMI_MONTHLY_INDEX]);
+                String hourlyRate  = cleanMoney(columns[HOURLY_RATE_INDEX]);
 
-                // [0]=last, [1]=first, [2]=bday, [3]=grossSemi, [4]=hourlyRate, [5]=basicSalary
-                employees.put(id, new String[]{last, first, bday, grossSemi, hourlyRate, basicSalary});
+                employees.put(id, new Employee(id, last, first, bday, basicSalary, grossSemi, hourlyRate));
             }
 
             br.close();
@@ -177,31 +229,42 @@ public class MotorPH {
     }
 
     // =====================
+    // LOAD ATTENDANCE
+    // =====================
+
+    static void loadAttendance() {
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(ATTENDANCE_FILE));
+            br.readLine(); // skip header
+
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] columns = parseCSVLine(line);
+                if (columns.length >= 6) {
+                    attendanceRecords.add(columns);
+                }
+            }
+
+            br.close();
+
+        } catch (Exception e) {
+            System.out.println("Error loading attendance: " + e.getMessage());
+        }
+    }
+
+    // =====================
     // GET MONTHS FROM ATTENDANCE
     // =====================
 
     static List<Integer> getAvailableMonths(String id) {
         Set<Integer> months = new TreeSet<>();
 
-        try {
-            BufferedReader br = new BufferedReader(new FileReader("employee_attendance.csv"));
-            br.readLine(); // skip header
+        for (String[] columns : attendanceRecords) {
+            if (!columns[0].trim().equals(id)) continue;
 
-            String line;
-            while ((line = br.readLine()) != null) {
-                String[] p = parseCSVLine(line);
-                if (p.length < 6) continue;
-                if (!p[0].trim().equals(id)) continue;
-
-                String[] d = p[3].trim().split("/");
-                int month = Integer.parseInt(d[0]);
-                months.add(month);
-            }
-
-            br.close();
-
-        } catch (Exception e) {
-            System.out.println("Attendance read error: " + e.getMessage());
+            String[] dateParts = columns[3].trim().split("/");
+            int month = Integer.parseInt(dateParts[0]);
+            months.add(month);
         }
 
         return new ArrayList<>(months);
@@ -213,64 +276,84 @@ public class MotorPH {
 
     static double calcHours(String id, int cutoff, int targetMonth) {
         double total = 0.0;
-        DateTimeFormatter f = DateTimeFormatter.ofPattern("H:mm");
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("H:mm");
 
-        LocalTime workStart  = LocalTime.of(8, 0);
-        LocalTime graceEnd   = LocalTime.of(8, 10);
-        LocalTime workEnd    = LocalTime.of(17, 0);
+        LocalTime workStart   = LocalTime.of(8, 0);
+        LocalTime graceEnd    = LocalTime.of(8, 10);
+        LocalTime workEnd     = LocalTime.of(17, 0);
         double maxHoursPerDay = 8.0;
-        int lunchMinutes     = 60;
+        int lunchMinutes      = 60;
 
-        try {
-            BufferedReader br = new BufferedReader(new FileReader("employee_attendance.csv"));
-            br.readLine(); // skip header
+        for (String[] columns : attendanceRecords) {
+            if (!columns[0].trim().equals(id)) continue;
 
-            String line;
-            while ((line = br.readLine()) != null) {
-                String[] p = parseCSVLine(line);
-                if (p.length < 6) continue;
-                if (!p[0].trim().equals(id)) continue;
+            String[] dateParts = columns[3].trim().split("/");
+            int month = Integer.parseInt(dateParts[0]);
+            int day   = Integer.parseInt(dateParts[1]);
 
-                String[] d = p[3].trim().split("/");
-                int month = Integer.parseInt(d[0]);
-                int day   = Integer.parseInt(d[1]);
+            if (month != targetMonth) continue;
 
-                if (month != targetMonth) continue;
+            boolean inCutoff1 = (cutoff == 1 && day <= 15);
+            boolean inCutoff2 = (cutoff == 2 && day >= 16);
+            if (!(inCutoff1 || inCutoff2)) continue;
 
-                boolean inCutoff1 = (cutoff == 1 && day <= 15);
-                boolean inCutoff2 = (cutoff == 2 && day >= 16);
-                if (!(inCutoff1 || inCutoff2)) continue;
+            LocalTime timeIn  = LocalTime.parse(columns[4].trim(), timeFormatter);
+            LocalTime timeOut = LocalTime.parse(columns[5].trim(), timeFormatter);
 
-                LocalTime timeIn  = LocalTime.parse(p[4].trim(), f);
-                LocalTime timeOut = LocalTime.parse(p[5].trim(), f);
+            // Grace period: if clocked in at 8:10 or earlier, treat as 8:00
+            // If clocked in after 8:10, start counting from actual time in (late)
+            LocalTime effectiveIn  = timeIn.isAfter(graceEnd) ? timeIn : workStart;
 
-                // Grace period: if clocked in at 8:10 or earlier, treat as 8:00
-                // If clocked in after 8:10, start counting from actual time in (late)
-                LocalTime effectiveIn = timeIn.isAfter(graceEnd) ? timeIn : workStart;
+            // Cap time out at 5:00 PM — no overtime counted
+            LocalTime effectiveOut = timeOut.isAfter(workEnd) ? workEnd : timeOut;
 
-                // Cap time out at 5:00 PM — no overtime counted
-                LocalTime effectiveOut = timeOut.isAfter(workEnd) ? workEnd : timeOut;
+            // Skip if employee clocked out before or at their start time
+            if (!effectiveOut.isAfter(effectiveIn)) continue;
 
-                // Skip if employee clocked out before or at their start time
-                if (!effectiveOut.isAfter(effectiveIn)) continue;
+            // Calculate minutes worked, subtract 1-hour lunch break
+            long minutesWorked = Duration.between(effectiveIn, effectiveOut).toMinutes() - lunchMinutes;
+            if (minutesWorked < 0) minutesWorked = 0;
 
-                // Calculate minutes worked, subtract 1-hour lunch break
-                long minutesWorked = Duration.between(effectiveIn, effectiveOut).toMinutes() - lunchMinutes;
-                if (minutesWorked < 0) minutesWorked = 0;
-
-                // Convert to hours and enforce 8-hour daily max
-                double hoursWorked = Math.min(minutesWorked / 60.0, maxHoursPerDay);
-
-                total += hoursWorked;
-            }
-
-            br.close();
-
-        } catch (Exception e) {
-            System.out.println("Attendance read error: " + e.getMessage());
+            // Convert to hours and enforce 8-hour daily max
+            double hoursWorked = Math.min(minutesWorked / 60.0, maxHoursPerDay);
+            total += hoursWorked;
         }
 
         return total;
+    }
+
+    // =====================
+    // PAYROLL CALCULATION
+    // =====================
+
+        static double[] calculateMonthPayroll(String id, int month, double hourlyRate) {
+        double h1 = calcHours(id, 1, month);
+        double g1 = h1 * hourlyRate;
+
+        double h2 = calcHours(id, 2, month);
+        double g2 = h2 * hourlyRate;
+
+        BigDecimal bdG1            = BigDecimal.valueOf(g1).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal bdG2            = BigDecimal.valueOf(g2).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal monthlyGross    = bdG1.add(bdG2);
+        BigDecimal sss             = BigDecimal.valueOf(calcSSS(monthlyGross.doubleValue())).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal philhealth      = BigDecimal.valueOf(calcPhilHealth(monthlyGross.doubleValue())).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal pagibig         = BigDecimal.valueOf(calcPagIbig(monthlyGross.doubleValue())).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalNonTax     = sss.add(philhealth).add(pagibig);
+        BigDecimal taxableIncome   = monthlyGross.subtract(totalNonTax);
+        BigDecimal tax             = BigDecimal.valueOf(calcTax(taxableIncome.doubleValue())).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalDeductions = totalNonTax.add(tax);
+
+        BigDecimal net1 = bdG1;
+        BigDecimal net2 = bdG2.subtract(totalDeductions);
+        if (net2.compareTo(BigDecimal.ZERO) < 0) net2 = BigDecimal.ZERO;
+
+        return new double[]{h1, bdG1.doubleValue(), net1.doubleValue(),
+                            h2, bdG2.doubleValue(), net2.doubleValue(),
+                            monthlyGross.doubleValue(), sss.doubleValue(),
+                            philhealth.doubleValue(), pagibig.doubleValue(),
+                            taxableIncome.doubleValue(), tax.doubleValue(),
+                            totalDeductions.doubleValue()};
     }
 
     // =====================
@@ -278,19 +361,18 @@ public class MotorPH {
     // =====================
 
     static void displayPayroll(String id) {
-        String[] e = employees.get(id);
+        Employee e = employees.get(id);
 
         double basicSalary     = 0.0;
         double effectiveHourly = 0.0;
 
         try {
-            basicSalary = Double.parseDouble(e[5]);
+            basicSalary = Double.parseDouble(e.basicSalary);
         } catch (Exception ex) {
             System.out.println("Invalid basic salary for employee " + id + ". Using 0.");
         }
-
         try {
-            effectiveHourly = Double.parseDouble(e[4]);
+            effectiveHourly = Double.parseDouble(e.hourlyRate);
         } catch (Exception ex) {
             System.out.println("Invalid hourly rate for employee " + id + ". Fallback to basicSalary/160.");
             effectiveHourly = basicSalary / 160.0;
@@ -303,64 +385,37 @@ public class MotorPH {
             return;
         }
 
-            System.out.println("\n=======================");
-            System.out.println("Employee Number : " + id);
-            System.out.println("Employee Name   : " + e[1] + " " + e[0]);
-            System.out.println("Birthday        : " + e[2]);
-            System.out.println("Basic Salary    : " + basicSalary);
+        System.out.println("\n=======================");
+        printEmployeeInfo(id, e);
 
         for (int month : availableMonths) {
-
-            double h1 = calcHours(id, 1, month);
-            double g1 = h1 * effectiveHourly;
-
-            double h2 = calcHours(id, 2, month);
-            double g2 = h2 * effectiveHourly;
-
-            double monthlyGross = g1 + g2;
-
-            // Deductions based on combined monthly gross
-            double sss        = calcSSS(monthlyGross);
-            double philhealth = calcPhilHealth(monthlyGross);
-            double pagibig    = calcPagIbig(monthlyGross);
-            double totalNonTax = sss + philhealth + pagibig;
-
-            // Tax based on (g1+g2) - non-tax deductions
-            double taxableIncome   = monthlyGross - totalNonTax;
-            double tax             = calcTax(taxableIncome);
-            double totalDeductions = totalNonTax + tax;
-
-            double net1 = g1;                        // no deductions on first cutoff
-            double net2 = g2 - totalDeductions;      // all deductions on second cutoff
-            if (net2 < 0) net2 = 0;
+            double[] p = calculateMonthPayroll(id, month, effectiveHourly);
+            // p[0]=h1, p[1]=g1, p[2]=net1, p[3]=h2, p[4]=g2, p[5]=net2
+            // p[6]=monthlyGross, p[7]=sss, p[8]=philhealth, p[9]=pagibig
+            // p[10]=taxableIncome, p[11]=tax, p[12]=totalDeductions
 
             System.out.println("\n-----------------------");
             System.out.println("Month: " + MONTH_NAMES[month]);
 
-            // ---- CUTOFF 1 ----
             System.out.println("\nCutoff Date        : " + MONTH_NAMES[month] + " 1 to 15");
-            System.out.println("Total Hours Worked : " + h1 + " hrs");
-            System.out.println("Gross Salary       : " + g1);
-            System.out.println("Net Salary         : " + net1);
+            System.out.println("Total Hours Worked : " + p[0] + " hrs");
+            System.out.println("Gross Salary       : " + p[1]);
+            System.out.println("Net Salary         : " + p[2]);
 
-            // ---- CUTOFF 2 ----
             System.out.println("\nCutoff Date        : " + MONTH_NAMES[month] + " 16 to 30");
-            System.out.println("Total Hours Worked : " + h2 + " hrs");
-            System.out.println("Gross Salary       : " + g2);
-            System.out.println("Total Deductions   : " + totalDeductions);
-            System.out.println("Net Salary         : " + net2);
-            
-            System.out.println("\n-- Deductions (based on Total Monthly Gross) --");
-            System.out.println("Total Monthly Gross: " + monthlyGross);
-            System.out.println("SSS                : " + sss);
-            System.out.println("PhilHealth         : " + philhealth);
-            System.out.println("Pag-IBIG           : " + pagibig);
-            System.out.println("Taxable Income     : " + taxableIncome);
-            System.out.println("Tax (Withholding)  : " + tax);
-            System.out.println("Total Deductions   : " + totalDeductions);
+            System.out.println("Total Hours Worked : " + p[3] + " hrs");
+            System.out.println("Gross Salary       : " + p[4]);
+            System.out.println("Total Deductions   : " + p[12]);
+            System.out.println("Net Salary         : " + p[5]);
 
-            
-            
+            System.out.println("\n-- Deductions (based on Total Monthly Gross) --");
+            System.out.println("Total Monthly Gross: " + p[6]);
+            System.out.println("SSS                : " + p[7]);
+            System.out.println("PhilHealth         : " + p[8]);
+            System.out.println("Pag-IBIG           : " + p[9]);
+            System.out.println("Taxable Income     : " + p[10]);
+            System.out.println("Tax (Withholding)  : " + p[11]);
+            System.out.println("Total Deductions   : " + p[12]);
         }
 
         System.out.println("\n=======================");
@@ -396,7 +451,7 @@ public class MotorPH {
         return premium / 2; // employee pays half
     }
 
-    static double calcSSS(double basicSalary) {
+        static double calcSSS(double basicSalary) {
         if (basicSalary < 3250)        return 135.00;
         else if (basicSalary <= 3750)  return 157.50;
         else if (basicSalary <= 4250)  return 180.00;
@@ -445,11 +500,11 @@ public class MotorPH {
     }
 
     static double calcTax(double taxableIncome) {
-        if (taxableIncome <= 20832)       return 0.00;
-        else if (taxableIncome < 33333)   return (taxableIncome - 20832) * 0.20;
-        else if (taxableIncome < 66667)   return 2500 + (taxableIncome - 33333) * 0.25;
-        else if (taxableIncome < 166667)  return 10833 + (taxableIncome - 66667) * 0.30;
-        else if (taxableIncome < 666667)  return 40833.33 + (taxableIncome - 166667) * 0.32;
-        else                              return 200833.33 + (taxableIncome - 666667) * 0.35;
+        if (taxableIncome <= 20832)      return 0.00;
+        else if (taxableIncome < 33333)  return (taxableIncome - 20832) * 0.20;
+        else if (taxableIncome < 66667)  return 2500 + (taxableIncome - 33333) * 0.25;
+        else if (taxableIncome < 166667) return 10833 + (taxableIncome - 66667) * 0.30;
+        else if (taxableIncome < 666667) return 40833.33 + (taxableIncome - 166667) * 0.32;
+        else                             return 200833.33 + (taxableIncome - 666667) * 0.35;
     }
 }
